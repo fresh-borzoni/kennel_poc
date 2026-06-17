@@ -1,0 +1,67 @@
+# Translation of the Fresha pgbouncer config to pgdog.
+# See ../../MIGRATION.md for the full setting-by-setting mapping.
+
+[general]
+host = "0.0.0.0"
+port = 6432
+
+# pgbouncer: pool_mode = transaction
+pooler_mode = "transaction"
+
+# pgbouncer: default_pool_size = 1000  (per user/db, same semantics)
+default_pool_size = 1000
+min_pool_size = 10
+
+# pgbouncer: max_client_conn = 3000
+# pgdog has no equivalent global client cap — async multiplexing handles
+# thousands of clients per process; the practical limit is FDs + RAM, not config.
+# Document, do not translate.
+
+# pgbouncer: max_prepared_statements = 1500
+prepared_statements = "extended"
+prepared_statements_limit = 1500
+
+# pgbouncer: server_idle_timeout = 60s
+idle_timeout = 60_000
+
+# pgbouncer: query_timeout = 10s
+query_timeout = 10_000
+
+# pgbouncer: idle_transaction_timeout = 5s
+client_idle_in_transaction_timeout = 5_000
+
+# pgbouncer: ignore_startup_parameters = extra_float_digits
+# pgdog forwards startup params transparently; no equivalent setting needed.
+
+# Client auth: pgbouncer uses md5 in prod today. pgdog default is scram.
+# Set md5 here to mirror current Fresha behaviour for the PoC.
+# In a real migration, prefer scram-sha-256 (Postgres 10+).
+auth_type = "md5"
+
+# TLS off in the PoC; production will turn this on (see Helm values-rds-tls.yaml).
+tls_verify = "disabled"
+tls_client_required = false
+
+# Prometheus endpoint, scrape with Datadog OpenMetrics check in prod.
+openmetrics_port = 9090
+openmetrics_namespace = "pgdog_"
+
+[admin]
+name = "admin"
+user = "admin"
+password = "admin"
+
+[tcp]
+keepalive = true
+# pgbouncer: tcp_keepidle = 300 -> pgdog uses ms
+time = 300_000
+# pgbouncer: tcp_keepintvl = 30
+interval = 30_000
+# pgbouncer: tcp_keepcnt = 2
+retries = 2
+
+[[databases]]
+name = "appdb"
+host = "postgres"
+port = 5432
+role = "primary"

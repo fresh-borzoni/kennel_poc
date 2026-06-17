@@ -1,0 +1,42 @@
+[general]
+host = "0.0.0.0"
+port = 6432
+pooler_mode = "transaction"
+default_pool_size = 20
+openmetrics_port = 9090
+
+# Killer feature: pgdog parses queries and routes them by sharding key.
+# Cross-shard SELECTs scatter to all shards and gather results in-memory.
+query_parser_enabled = true
+
+[[databases]]
+name = "appdb"
+host = "shard_0"
+port = 5432
+role = "primary"
+shard = 0
+
+[[databases]]
+name = "appdb"
+host = "shard_1"
+port = 5432
+role = "primary"
+shard = 1
+
+# Hash-shard the bookings table by salon_id.
+# Inserts/updates with salon_id = X are routed to shard hash(X) % 2.
+# SELECTs filtered on salon_id are routed to a single shard;
+# unfiltered SELECTs scatter-gather across both.
+[[sharded_tables]]
+database = "appdb"
+name = "bookings"
+column = "salon_id"
+data_type = "bigint"
+
+# Allow multi-tuple `INSERT ... VALUES (...), (...), (...)` to be split
+# into per-shard statements rather than broadcast.
+# Note: `INSERT ... SELECT` cannot be split — pgdog can only inspect literals.
+[rewrite]
+enabled = true
+split_inserts = "rewrite"
+shard_key = "ignore"

@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
+    volumes:
+      - ./setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d appdb"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    networks:
+      - pool
+
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.24.1-p1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
+    ports:
+      - "6433:6433"
+    networks:
+      - pool
+
+  pgdog:
+    image: ghcr.io/pgdogdev/pgdog:main
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./pgdog/pgdog.toml:/pgdog/pgdog.toml
+      - ./pgdog/users.toml:/pgdog/users.toml
+    ports:
+      - "6432:6432"
+    environment:
+      RUST_LOG: info
+    networks:
+      - pool
+
+networks:
+  pool:

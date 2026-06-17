@@ -1,0 +1,50 @@
+services:
+  shard_0:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
+    volumes:
+      - ./setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d appdb"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    networks:
+      - shards
+
+  shard_1:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
+    volumes:
+      - ./setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d appdb"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    networks:
+      - shards
+
+  pgdog:
+    image: ghcr.io/pgdogdev/pgdog:main
+    depends_on:
+      shard_0:
+        condition: service_healthy
+      shard_1:
+        condition: service_healthy
+    volumes:
+      - ./pgdog.toml:/pgdog/pgdog.toml
+      - ./users.toml:/pgdog/users.toml
+    ports:
+      - "6432:6432"
+    environment:
+      RUST_LOG: info
+    networks:
+      - shards
+
+networks:
+  shards:
